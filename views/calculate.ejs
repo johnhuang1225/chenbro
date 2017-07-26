@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>前盛勤昆出差日期計算器</title>
+    <link rel="stylesheet" href="/assets/bower_components/jquery-ui/themes/smoothness/jquery-ui.min.css">
+    <link rel="stylesheet" href="/assets/bower_components/bootstrap/dist/css/bootstrap.min.css">
+
+    <style>
+        * {
+            font-family: 微軟正黑體;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+
+    <h4>假日膳雜費 <span id='holiday_money_id' class='label label-danger'></span> , 工作日膳雜費 <span id='workday_money_id' class='label label-danger'></span></h4>
+    
+    <form class="form-horizontal" role="form">   
+        <div class="radio">
+            <label class="radio-inline">
+                <input type="radio" name="factory" value="DGP" checked>前盛
+            </label>
+        </div>
+        <div class="radio">
+            <label class="radio-inline">
+                <input type="radio" name="factory" value="CSH">勤昆
+            </label>            
+        </div>
+        <br>
+        <div class="form-group">
+            <div class="col-xs-3">
+                <input type="text" class="form-control" id="start_date" placeholder="開始日期">    
+            </div>
+        </div>
+        <div class="form-group">
+            <div class="col-xs-3">
+                <input type="text" class="form-control" id="end_date" placeholder="結束日期">
+            </div>
+        </div>
+        <button type="button" id="cal" class="btn btn-default">計算</button>
+
+    </form>
+
+    <hr>
+    <h4>
+        假日天數：<span class='label label-info' id='holiday_count'>0</span>
+        膳雜費：<span class='label label-info' id='holiday_money'>0</span>
+    </h4>
+    <h4>
+        工作日天數：<span class='label label-info' id='workday_count'>0</span>
+        膳雜費：<span class='label label-info' id='workday_money'>0</span>
+    </h4>
+    <h4>
+        總計：<span class='label label-info' id='total'>0</span>
+    </h4>
+
+</div>
+<script src="/assets/bower_components/jquery/dist/jquery.min.js"></script>
+<script src="/assets/bower_components/jquery-ui/jquery-ui.min.js"></script>
+<script>
+// DGP特殊放假日
+var DGP_holidays = ['2017-01-02', '2017-01-24', '2017-01-25', '2017-01-26', '2017-01-27', '2017-01-31',
+                    '2017-02-01', '2017-02-02', '2017-02-03',
+                    '2017-04-03', '2017-04-04',
+                    '2017-05-01', '2017-05-29', '2017-05-30',
+                    '2017-10-02', '2017-10-03', '2017-10-04', '2017-10-05', '2017-10-06'];
+// DGP特殊工作日
+var DGP_workdays = ['2017-01-07', '2017-01-14', '2017-01-22',
+                    '2017-02-05', '2017-02-11', '2017-02-18',
+                    '2017-04-08', 
+                    '2017-05-27', 
+                    '2017-10-08'];
+// CSH特殊放假日
+var CSH_holidays = ['2017-01-02', '2017-01-24', '2017-01-25', '2017-01-26', '2017-01-27', '2017-01-31',
+                    '2017-02-01', '2017-02-02', '2017-02-03',
+                    '2017-04-03', '2017-04-04',
+                    '2017-05-01', '2017-05-29', '2017-05-30',
+                    '2017-10-02', '2017-10-03', '2017-10-04', '2017-10-05', '2017-10-06'];
+// CSH特殊工作日
+var CSH_workdays = ['2017-01-07', '2017-01-14', '2017-01-22',
+                    '2017-02-05', '2017-02-11', '2017-02-18',
+                    '2017-04-08', 
+                    '2017-05-27', 
+                    '2017-10-08'];
+
+
+$(function() {
+    var HOLIDAY_MONEY = 30; // 假日膳雜費
+    var WORKDAY_MONEY = 10; // 工作日膳雜費
+    var formatObj = {
+        dateFormat: 'yy-mm-dd'
+    };
+    $('#start_date').datepicker(formatObj);
+    $('#end_date').datepicker(formatObj);
+
+    $('#holiday_money_id').text(HOLIDAY_MONEY);
+    $('#workday_money_id').text(WORKDAY_MONEY);
+
+    $('#cal').click(function() {
+        var factory = $('input[name=factory]:radio:checked').val();
+        var holidays = DGP_holidays;
+        var workdays = DGP_workdays;
+        if (factory == 'CSH') {
+            holidays = CSH_holidays;
+            workdays = CSH_workdays;
+        }
+
+        var start = $('#start_date').val();
+        var end = $('#end_date').val();
+        var result = workingDaysBetweenDates(start, end, holidays, workdays);
+
+
+        $('#workday_count').text(result.workdays_count);
+        $('#workday_money').text(parseInt(result.workdays_count) * WORKDAY_MONEY);
+        $('#holiday_count').text(result.holidays_count);
+        $('#holiday_money').text(parseInt(result.holidays_count) * HOLIDAY_MONEY);
+        $('#total').text(parseInt(result.workdays_count) * WORKDAY_MONEY + parseInt(result.holidays_count) * HOLIDAY_MONEY);
+    });
+
+});
+
+function workingDaysBetweenDates(d0, d1, holidays, workdays) {
+    // // 特殊放假日
+    // var holidays = ['2017-01-02', '2017-01-24', '2017-01-25', '2017-01-26', '2017-01-27', '2017-01-31',
+    //                 '2017-02-01', '2017-02-02', '2017-02-03',
+    //                 '2017-04-03', '2017-04-04',
+    //                 '2017-05-01', '2017-05-29', '2017-05-30',
+    //                 '2017-10-02', '2017-10-03', '2017-10-04', '2017-10-05', '2017-10-06'];
+    // // 特殊工作日
+    // var workdays = ['2017-01-07', '2017-01-14', '2017-01-22',
+    //                 '2017-02-05', '2017-02-11', '2017-02-18',
+    //                 '2017-04-08', 
+    //                 '2017-05-27', 
+    //                 '2017-10-08'];
+
+    var startDate = parseDate(d0);
+    var endDate = parseDate(d1);  
+    // Validate input
+    if (endDate < startDate) {
+        alert('開始日期小於結束日期!');
+        return 0;
+    }
+    // Calculate days between dates
+    var millisecondsPerDay = 86400 * 1000; // Day in milliseconds
+    startDate.setHours(0,0,0,1);  // Start just after midnight
+    endDate.setHours(23,59,59,999);  // End just before midnight
+    var diff = endDate - startDate;  // Milliseconds between datetime objects    
+    var days = Math.ceil(diff / millisecondsPerDay);
+    var alldays = days;
+    console.log('總天數:' + days);
+    
+    // Subtract two weekend days for every week in between
+    var weeks = Math.floor(days / 7);
+    days -= weeks * 2;
+
+    // Handle special cases
+    var startDay = startDate.getDay();
+    var endDay = endDate.getDay();
+    
+    // Remove weekend not previously removed.   
+    if (startDay - endDay > 1) {
+        days -= 2;
+    }
+    // Remove start day if span starts on Sunday but ends before Saturday
+    if (startDay == 0 && endDay != 6) {
+        days--;  
+    }
+    // Remove end day if span ends on Saturday but starts after Sunday
+    if (endDay == 6 && startDay != 0) {
+        days--;
+    }
+    /* Here is the code */
+    for (var i in holidays) {
+        if ((holidays[i] >= d0) && (holidays[i] <= d1)) {
+            days--;
+        } else if ((workdays[i] >= d0) && (workdays[i] <= d1)) {
+            days++;
+        }
+    }
+    
+    return {
+        alldays: alldays,
+        workdays_count: days,
+        holidays_count: alldays-days
+    };
+}
+           
+function parseDate(input) {
+    // Transform date from text to date
+    var parts = input.match(/(\d+)/g);
+    // new Date(year, month [, date [, hours[, minutes[, seconds[, ms]]]]])
+    return new Date(parts[0], parts[1]-1, parts[2]); // months are 0-based
+}
+
+
+</script>
+</body>
+</html>
